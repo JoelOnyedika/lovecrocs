@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import Lenis from 'lenis';
 import './style.css';
 
@@ -18,58 +19,34 @@ let fit = 1;
 function resize() { const w = innerWidth, h = innerHeight; R.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); fit = Math.min(1, cam.aspect / 1.55) }
 addEventListener('resize', resize); resize();
 
-/* ---------- procedural clog ---------- */
-const L = 3, hw = u => .62 * Math.sqrt(Math.sin(Math.PI * (.03 + .94 * u))) * (.82 + .3 * u), X = u => (u - .5) * L;
-const H = u => .3 + .4 * sm((u - .3) / .42) * Math.pow(Math.cos(cl((u - .72) / .28) * Math.PI / 2), .6), BASE = .58;
-const nc = document.createElement('canvas'); nc.width = nc.height = 128; { const x = nc.getContext('2d'), d = x.createImageData(128, 128); for (let i = 0; i < d.data.length; i += 4) { d.data[i] = d.data[i + 1] = d.data[i + 2] = 128 + Math.random() * 70 | 0; d.data[i + 3] = 255 } x.putImageData(d, 0, 0) }
-const NOISE = new THREE.CanvasTexture(nc); NOISE.wrapS = NOISE.wrapT = THREE.RepeatWrapping;
-
-function upperGeo() {
-  const NU = 64, NA = 22, pos = [], uv = [], idx = [], gap = u => 1.1 * (1 - sm((u - .42) / .16)), rims = [[], []];
-  for (const side of [0, 1]) {
-    const b = pos.length / 3;
-    for (let i = 0; i <= NU; i++) { const u = i / NU, g = gap(u); for (let j = 0; j <= NA; j++) { const t = j / NA, a = side ? lr(Math.PI / 2 + g, Math.PI, t) : lr(0, Math.PI / 2 - g, t); pos.push(X(u), BASE + H(u) * Math.pow(Math.sin(a), .6), hw(u) * Math.cos(a)); uv.push(u * 5, t * 2) } if (u <= .6) { const a = side ? Math.PI / 2 + g : Math.PI / 2 - g; rims[side].push(new THREE.Vector3(X(u), BASE + H(u) * Math.pow(Math.sin(a), .6), hw(u) * Math.cos(a))) } }
-    for (let i = 0; i < NU; i++) for (let j = 0; j < NA; j++) { const a = b + i * (NA + 1) + j, c = a + NA + 1; idx.push(a, a + 1, c, a + 1, c + 1, c) }
-  }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
-  return { g, rims: rims.map(r => new THREE.TubeGeometry(new THREE.CatmullRomCurve3(r), 70, .045, 8)) };
-}
-function soleGeo() {
-  const s = new THREE.Shape(), P = []; for (let i = 0; i <= 40; i++) { const u = i / 40; P.push([X(u), hw(u) * 1.06 + .03]) }
-  s.moveTo(...P[0]); P.forEach(p => s.lineTo(...p)); for (let i = 40; i >= 0; i--) s.lineTo(P[i][0], -P[i][1]);
-  const g = new THREE.ExtrudeGeometry(s, { depth: .4, bevelEnabled: true, bevelSize: .07, bevelThickness: .08, bevelSegments: 5, curveSegments: 1 }); g.rotateX(-Math.PI / 2); g.translate(0, .12, 0); return g;
-}
-const UP = upperGeo(), SOLE = soleGeo(), STRAP = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([[-.5, .72, .5], [-.85, 1.0, .46], [-1.15, 1.13, .2], [-1.15, 1.13, -.2], [-.85, 1.0, -.46], [-.5, .72, -.5]].map(p => new THREE.Vector3(...p))), 50, .085, 10);
-const HOLE = new THREE.CircleGeometry(.03, 12).scale(1, 1.6, 1), HOLEM = new THREE.MeshBasicMaterial({ color: 0x1a0a05, side: 2 });
-const holes = []; for (const a of [.62, Math.PI - .62]) for (const u of [.47, .55, .63, .71, .79]) { const w = hw(u), h = H(u), yr = h * Math.pow(Math.sin(a), .6), z = w * Math.cos(a), n = new THREE.Vector3(0, yr / (h * h), z / (w * w)).normalize(), p = new THREE.Vector3(X(u), BASE + yr, z).addScaledVector(n, .012); holes.push([p, p.clone().add(n)]) }
-const lugs = []; for (let x = -1.35; x <= 1.35; x += .13) for (let z = -.55; z <= .55; z += .11) { const u = x / L + .5; if (Math.abs(z) < hw(u) * .78) lugs.push([x, z]) }
-
-const gc = document.createElement('canvas'); gc.width = gc.height = 256; const gx = gc.getContext('2d'), CHARM = new THREE.CanvasTexture(gc);
+/* ---------- the clog: supplied GLB, embedded in the bundle (works offline / file:// / Vercel) ---------- */
 const GATOR = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path fill="#e9e8e1" d="M16 47c3-9 14-13 25-10l5-9 4 8 6-8 3 11c11-2 21 6 23 17l-4 15c-9 3-19 1-27 4l-3-9-7 5-9-9c-8 2-15-4-16-10z"/><circle cx="33" cy="46" r="3" fill="#111"/></svg>');
-const gimg = new Image(); gimg.src = GATOR; $('#plogo').src = GATOR;
-function drawCharm() { gx.fillStyle = '#0c0c0c'; gx.fillRect(0, 0, 256, 256); gx.strokeStyle = '#cfcfc8'; gx.lineWidth = 7; gx.beginPath(); gx.arc(128, 128, 112, 0, 7); gx.stroke(); if (gimg.complete) gx.drawImage(gimg, 38, 38, 180, 180); CHARM.needsUpdate = true }
-drawCharm(); gimg.onload = drawCharm;
-
+$('#plogo').src = GATOR;
+let MODEL, BASEMAT; const CH = new THREE.Vector3(-.6, 0, .5);
+function prep(gltf) {
+  const root = new THREE.Group(), norm = new THREE.Group(); norm.add(gltf.scene); root.add(norm);
+  const each = fn => root.traverse(o => { if (o.isMesh) { const p = o.geometry.attributes.position, v = new THREE.Vector3(); for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); fn(v, i, o) } } });
+  const fitIt = flip => { norm.rotation.set(0, Math.PI / 2 + (flip ? Math.PI : 0), 0); norm.scale.setScalar(1); norm.position.set(0, 0, 0); root.updateMatrixWorld(true);
+    let b = new THREE.Box3().setFromObject(root); norm.scale.setScalar(3 / b.getSize(new THREE.Vector3()).x); root.updateMatrixWorld(true);
+    b = new THREE.Box3().setFromObject(root); norm.position.copy(b.getCenter(new THREE.Vector3()).negate()); root.updateMatrixWorld(true) };
+  const wid = () => { let a = 0, b = 0; each(v => { if (v.x > 1) a = Math.max(a, Math.abs(v.z)); if (v.x < -1) b = Math.max(b, Math.abs(v.z)) }); return [a, b] };
+  fitIt(false); { const [a, b] = wid(); if (a < b) fitIt(true) }   // toe is the wider end -> must face +x
+  each((v, i, o) => { const g = o.geometry; g.userData.ax = g.userData.ax || new Float32Array(g.attributes.position.count); g.userData.ax[i] = v.x });
+  root.traverse(o => { if (o.isMesh) { o.geometry.setAttribute('aX', new THREE.BufferAttribute(o.geometry.userData.ax, 1)); BASEMAT = BASEMAT || o.material } });
+  let zs = 0; each(v => { if (Math.abs(v.x - CH.x) < .06 && Math.abs(v.y - CH.y) < .08 && v.z > zs) zs = v.z }); CH.z = zs;
+  MODEL = root;
+}
 function bodyMat() {
   const u = { uA: { value: OR.clone() }, uB: { value: OR.clone() }, uSeam: { value: -2 } };
-  const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .5, bumpMap: NOISE, bumpScale: .3, side: 2 });
-  NOISE.repeat.set(1, 1);
-  m.onBeforeCompile = s => { Object.assign(s.uniforms, u); s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>\nvarying float vX;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvX=position.x;'); s.fragmentShader = s.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vX;uniform vec3 uA;uniform vec3 uB;uniform float uSeam;').replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb=mix(uA,uB,smoothstep(uSeam-.04,uSeam+.04,vX));') };
+  const m = BASEMAT.clone(); m.metalnessMap = null; m.metalness = 0; m.roughness = 1.3; m.side = THREE.DoubleSide;
+  m.onBeforeCompile = s => { Object.assign(s.uniforms, u); s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>\nattribute float aX;varying float vX;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvX=aX;'); s.fragmentShader = s.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vX;uniform vec3 uA;uniform vec3 uB;uniform float uSeam;').replace('#include <color_fragment>', '#include <color_fragment>\nfloat lum=dot(diffuseColor.rgb,vec3(.299,.587,.114));diffuseColor.rgb=mix(uA,uB,smoothstep(uSeam-.04,uSeam+.04,vX))*mix(1.,clamp(lum*2.,.35,1.25),.3);') };
   m.userData.u = u; return m;
 }
-function makeShoe() {
-  const g = new THREE.Group(), o = new THREE.Group(), mat = bodyMat(), ring = new THREE.MeshStandardMaterial({ color: OR, roughness: .5 }), lug = new THREE.MeshStandardMaterial({ color: OR, roughness: .6 });
-  o.position.y = -.7; g.add(o); o.add(new THREE.Mesh(SOLE, mat), new THREE.Mesh(UP.g, mat), new THREE.Mesh(UP.rims[0], mat), new THREE.Mesh(UP.rims[1], mat), new THREE.Mesh(STRAP, mat));
-  const im = new THREE.InstancedMesh(new THREE.BoxGeometry(.1, .06, .07), lug, lugs.length), m4 = new THREE.Matrix4(); lugs.forEach((l, i) => { im.setMatrixAt(i, m4.makeTranslation(l[0], .02, l[1])) }); o.add(im);
-  for (const [p, t] of holes) { const h = new THREE.Mesh(HOLE, HOLEM); h.position.copy(p); h.lookAt(t); o.add(h) }
-  for (const s of [1, -1]) { const c = new THREE.Group(); c.position.set(-.5, .72, .5 * s); if (s < 0) c.rotation.y = Math.PI;
-    c.add(new THREE.Mesh(new THREE.TorusGeometry(.125, .03, 12, 32), ring)); const d = new THREE.Mesh(new THREE.CylinderGeometry(.105, .105, .05, 32), new THREE.MeshStandardMaterial({ color: 0x101010, roughness: .4, metalness: .3 })); d.rotation.x = Math.PI / 2; c.add(d);
-    const f = new THREE.Mesh(new THREE.CircleGeometry(.1, 32), new THREE.MeshBasicMaterial({ map: CHARM })); f.position.z = .03; c.add(f); o.add(c) }
-  g.userData = { mat, ring, lug }; scene.add(g); return g;
-}
-function setCol(s, a, b, seam, gold = 0) { const { mat, ring, lug } = s.userData, u = mat.userData.u; u.uA.value.copy(a); u.uB.value.copy(b); u.uSeam.value = seam; ring.color.copy(seam > -.5 ? a : b); lug.color.copy(seam > 0 ? a : b); mat.metalness = gold * .85; mat.roughness = lr(.5, .32, gold) }
+function makeShoe() { const g = new THREE.Group(), mat = bodyMat(), o = MODEL.clone(true); o.traverse(m => { if (m.isMesh) m.material = mat }); g.add(o); g.userData = { mat }; scene.add(g); return g }
+function setCol(s, a, b, seam, gold = 0) { const { mat } = s.userData, u = mat.userData.u; u.uA.value.copy(a); u.uB.value.copy(b); u.uSeam.value = seam; mat.metalness = gold * .85; mat.roughness = lr(1.3, .8, gold) }
+function boot() {
 const hero = makeShoe(), twin = makeShoe(), six = [BL, PK, LM, VI, BO, OR].map(c => { const w = new THREE.Group(), s = makeShoe(); scene.remove(s); s.rotation.x = Math.PI / 2; w.add(s); setCol(s, c, c, -2); scene.add(w); return w });
-const CH = new THREE.Vector3(-.5, .02, .5);
+
 function pose(s, x, y, rx, ry, rz, sc, zm) { s.scale.setScalar(sc * fit); s.rotation.set(rx, ry, rz); const v = CH.clone().multiplyScalar(sc * fit).applyEuler(s.rotation); s.position.set(lr(x, -v.x, zm), lr(y, -v.y, zm), lr(0, -v.z, zm)) }
 
 /* wireframe orbit rings (digital violet) */
@@ -78,9 +55,9 @@ const rings = new THREE.Group(), RM = new THREE.MeshBasicMaterial({ color: 0xcfd
 
 /* ---------- scroll keyframes ---------- */
 // [p, x, y, rx, ry, rz, scale, zoom]
-const PS = [[0, 0, -.1, .08, -.55, .04, 1.35, 0], [.10, 0, -.1, .08, -.55, .04, 1.35, 0], [.14, .6, -.35, .05, -.3, 0, 2.3, 0], [.17, 0, 0, 0, -.2, 0, 5.5, .85], [.21, 0, 0, 0, -.1, 0, 10, 1]];
-for (let k = 0; k < 4; k++) { const p = .24 + k * .06; PS.push([p, .2, .05, .1, -.45, .05, 1.5, 0], [p + .02, .2, .05, .1, -.35, .05, 1.5, 0], [p + .045, .2, .25, .5, 1, .12, 1.35, 0]) }
-PS.push([.475, .2, .05, .1, -.45, .05, 1.5, 0], [.57, 0, 0, .1, -.2, 0, 1.6, 0], [.65, 0, 0, .1, -.2, 0, 1.6, 0], [.665, 1.6, 0, -1.57, 0, .2, 2.6, 0], [.70, -1.6, 0, -1.57, 0, .2, 2.6, 0], [.83, -1.7, 1, .1, -.5, .25, 1.05, 0], [.93, -1.7, 1, .1, -.5, .25, 1.05, 0], [.945, 0, 0, 0, -.1, 0, 6, .9], [.975, 0, 0, 0, -.1, 0, 46, 1], [1, 0, 0, 0, -.1, 0, 46, 1]);
+const PS = [[0, 0, -.1, .08, -.55, .04, 1.9, 0], [.10, 0, -.1, .08, -.55, .04, 1.9, 0], [.14, .6, -.35, .05, -.3, 0, 3.2, 0], [.17, 0, 0, 0, -.2, 0, 5.5, .85], [.21, 0, 0, 0, -.1, 0, 10, 1]];
+for (let k = 0; k < 4; k++) { const p = .24 + k * .06; PS.push([p, .2, .05, .1, -.45, .05, 2.1, 0], [p + .02, .2, .05, .1, -.35, .05, 2.1, 0], [p + .045, .2, .25, .5, 1, .12, 1.85, 0]) }
+PS.push([.475, .2, .05, .1, -.45, .05, 2.1, 0], [.57, 0, 0, .1, -.2, 0, 2.1, 0], [.65, 0, 0, .1, -.2, 0, 2.1, 0], [.665, 1.6, 0, -1.57, 0, .2, 3.4, 0], [.70, -1.6, 0, -1.57, 0, .2, 3.4, 0], [.83, -2.1, 1.15, .1, -.5, .25, 1.5, 0], [.93, -2.1, 1.15, .1, -.5, .25, 1.5, 0], [.945, 0, 0, 0, -.1, 0, 6, .9], [.975, 0, 0, 0, -.1, 0, 46, 1], [1, 0, 0, 0, -.1, 0, 46, 1]);
 // [p, bg edge, bg center, ink]
 const BG = [[0, '#bd420b', '#ee6d12', '#f3f1e8'], [.12, '#bd420b', '#ee6d12', '#f3f1e8'], [.14, '#b33c0a', '#e0620e', '#f3f1e8'], [.215, '#b33c0a', '#e0620e', '#f3f1e8'], [.24, '#2468dd', '#a6d6ff', '#0d1d52'], [.27, '#2468dd', '#a6d6ff', '#0d1d52'], [.30, '#ffd6e8', '#fff4f9', '#3a1030'], [.33, '#ffd6e8', '#fff4f9', '#3a1030'], [.36, '#e6efdc', '#fafaf4', '#141b0a'], [.39, '#e6efdc', '#fafaf4', '#141b0a'], [.42, '#0a1c9f', '#2a42f0', '#ffffff'], [.455, '#0a1c9f', '#2a42f0', '#ffffff'], [.48, '#cfe4e8', '#f0f8f9', '#0e2a30'], [.56, '#cfe4e8', '#f0f8f9', '#0e2a30'], [.58, '#9c8f4c', '#efe5b6', '#2a2610'], [.69, '#9c8f4c', '#efe5b6', '#2a2610'], [.715, '#d7e8ee', '#f6fbfc', '#101c20'], [.82, '#d7e8ee', '#f6fbfc', '#101c20'], [.84, '#b13d09', '#ec6a12', '#f3f1e8'], [.95, '#b13d09', '#ec6a12', '#f3f1e8'], [.97, '#050506', '#101014', '#ffffff'], [1, '#050506', '#101014', '#ffffff']].map(r => [r[0], C(r[1]), C(r[2]), C(r[3])]);
 const SEG = [[.215, .24, OR, BL], [.27, .30, BL, PK], [.33, .36, PK, LM], [.39, .42, LM, VI], [.5, .51, VI, BK], [.655, .68, BK, GD]];
@@ -98,7 +75,7 @@ function buildCards() {
     x.fillStyle = '#fffd'; if (prop == 'cloud') [[80, 400, 120], [230, 440, 150], [310, 380, 90]].forEach(([a, b, r]) => { x.beginPath(); x.arc(a, b, r, 0, 7); x.fill() });
     if (prop == 'win') { x.strokeStyle = '#8a7f72'; x.lineWidth = 16; x.strokeRect(40, 60, 280, 420) } if (prop == 'rock') { x.fillStyle = '#6b4a3a'; x.beginPath(); x.moveTo(60, 520); x.lineTo(90, 360); x.lineTo(270, 350); x.lineTo(310, 520); x.fill() }
     if (prop == 'arch') { x.strokeStyle = '#d9b24a'; x.lineWidth = 6; x.beginPath(); x.arc(180, 230, 120, Math.PI, 0); x.stroke(); x.fillStyle = '#c9a233'; x.fillRect(30, 400, 300, 22) } if (prop == 'block') { x.fillStyle = '#fff'; x.fillRect(70, 360, 220, 160) }
-    twin.visible = true; setCol(twin, col, col, -2, col === GD ? 1 : 0); pose(twin, 0, -.1, .12, -.6, 0, .8, 0); twin.scale.setScalar(.8); R.render(scene, cam); x.drawImage(canvas, 0, 0, 360, 520);
+    twin.visible = true; setCol(twin, col, col, -2, col === GD ? 1 : 0); pose(twin, 0, -.1, .12, -.6, 0, .92, 0); twin.scale.setScalar(.92); R.render(scene, cam); x.drawImage(canvas, 0, 0, 360, 520);
     const d = document.createElement('div'); d.className = 'card'; d.append(cv); d.insertAdjacentHTML('beforeend', `<i>${name}</i>`); wrap.append(d);
   });
   six.forEach(w => w.children[0].visible = true); twin.visible = false; hero.visible = true; R.setPixelRatio(Math.min(devicePixelRatio, 1.5)); resize();
@@ -135,14 +112,17 @@ function frame(t) {
   hero.visible = !(p > .462 && p < .565) && !(p > .705 && p < .83);
   // twin: after-dark mirror + pair-up partner
   const split = sm((p - .595) / .025) - sm((p - .635) / .02), ad = p > .575 && p < .66, pr = p > .83 && p < .945;
-  if (ad) { hero.position.y -= split * 1.25 * fit; pose(twin, 0, split * 1.25, Math.PI, -.2, .02, 1.6, 0); setCol(twin, ca, cb, cs, 0) }
-  if (pr) { const e = 1 - sm((p - .835) / .03), o = sm((p - .93) / .015); pose(twin, .6 + e * 5, -1 + Math.sin(T * 1.1 + 1) * .06, .12, -.5, -.08, 1.15 * (1 - o), 0); setCol(twin, pick, pick, -2, 0); hero.position.x += (1 - sm((p - .83) / .03)) * 0 }
-  if (pr) { const e = sm((p - .83) / .03); pose(hero, -1.7 - (1 - e) * 5, 1 + Math.sin(T * 1.3) * .06, .1, -.5, .25, 1.05, 0) }
+  if (ad) { hero.position.y -= split * 1.5 * fit; pose(twin, 0, split * 1.5, Math.PI, -.2, .02, 2.1, 0); setCol(twin, ca, cb, cs, 0) }
+  if (pr) { const e = 1 - sm((p - .835) / .03), o = sm((p - .93) / .015); pose(twin, .5 + e * 5, -1.05 + Math.sin(T * 1.1 + 1) * .06, .12, -.5, -.08, 1.5 * (1 - o), 0); setCol(twin, pick, pick, -2, 0); hero.position.x += (1 - sm((p - .83) / .03)) * 0 }
+  if (pr) { const e = sm((p - .83) / .03); pose(hero, -2.1 - (1 - e) * 5, 1.15 + Math.sin(T * 1.3) * .06, .1, -.5, .25, 1.5, 0) }
   twin.visible = ad || pr;
   // six colors pinwheel
-  const sx = win(p, .462, .565, .02); six.forEach((w, i) => { const th = i * Math.PI / 3 + (p - .47) * 9, r = 1.7 * sm((p - .465) / .03) * fit; w.visible = sx > .01; w.position.set(Math.cos(th) * r, Math.sin(th) * r + .6, 0); w.rotation.z = th + 1.25; w.scale.setScalar(.55 * fit * sx) });
+  const sx = win(p, .462, .565, .02); six.forEach((w, i) => { const th = i * Math.PI / 3 + (p - .47) * 9, r = 1.75 * sm((p - .465) / .03) * fit; w.visible = sx > .01; w.position.set(Math.cos(th) * r, Math.sin(th) * r + .5, 0); w.rotation.z = th + 1.25; w.scale.setScalar(.68 * fit * sx) });
   // orbit rings
   const ro = win(p, .405, .465, .02); rings.visible = ro > .01; RM.opacity = ro * .85; rings.position.copy(hero.position); rings.rotation.y = T * .5; rings.scale.setScalar(fit);
   R.render(scene, cam); requestAnimationFrame(frame);
 }
 buildCards(); requestAnimationFrame(frame);
+}
+import glb from '../assets/crocs.glb';
+new GLTFLoader().parse(glb.buffer.slice(glb.byteOffset, glb.byteOffset + glb.byteLength), '', g => { prep(g); boot() }, e => console.error(e));
