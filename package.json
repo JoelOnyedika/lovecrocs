@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "esbuild src/main.js --bundle --minify --format=iife --outdir=dist --loader:.woff2=file --asset-names=[name]",
-    "dev": "esbuild src/main.js --bundle --format=iife --outdir=dist --loader:.woff2=file --asset-names=[name] --servedir=. --watch"
+    "build": "esbuild src/main.js --bundle --minify --format=iife --outdir=public/dist --loader:.woff2=file --asset-names=[name]",
+    "dev": "esbuild src/main.js --bundle --format=iife --outdir=public/dist --loader:.woff2=file --asset-names=[name] --servedir=public --watch"
   },
   "keywords": [],
   "author": "",

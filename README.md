@@ -3,7 +3,7 @@
 Rebuilt from the screen recording. Not affiliated with Crocs, Inc.
 
 ## Run it
-Double-click `index.html` (works from the folder, no server needed). Best in Chrome/Edge/Firefox with hardware acceleration on.
+Double-click `public/index.html` (no server needed). Best in Chrome/Edge/Firefox with hardware acceleration on.
 
 ## Rebuild from source
     npm install
@@ -20,3 +20,6 @@ Double-click `index.html` (works from the folder, no server needed). Best in Chr
 
 ## Editing
 Copy lives in `index.html`. Scroll timing, poses and colors are the `PS`, `BG`, `SEG` tables in `src/main.js`.
+
+## Deploy to Vercel
+Import the folder/zip contents as a project. `vercel.json` already sets: build `npm run build`, output directory `public`. No other settings needed.
